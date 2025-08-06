@@ -6,10 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "tailwind:init": "tailwindcss init -p"
   },
   "dependencies": {
+    "@chakra-ui/react": "^3.24.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "ethers": "^6.15.0",
+    "framer-motion": "^12.23.12",
     "next": "15.4.5",
     "react": "19.1.0",
     "react-dom": "19.1.0"
