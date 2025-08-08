@@ -1,4 +1,229 @@
+// -- Contract Configuration
+
+const contractAddress = "0xe63667252fbF4DE5F18b953e19B00CD12c8E002A";
+
+const contractABI = [
+
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableInvalidOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "finalScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "GameOver",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "GameStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "finalScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "GameWon",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "tileIndex",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "tileValue",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "TileFlipped",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "_tileIndex",
+          "type": "uint8"
+        }
+      ],
+      "name": "flipTile",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "playerGames",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "currentScore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum VoltorbFlip.GameStatus",
+          "name": "status",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "voltorbsRemaining",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "coinsRemaining",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "startGame",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+
+];
+
 let currentAccount = null;
+let voltorbFlipContract = null;
 
 // Dom elements reference
 
@@ -28,6 +253,43 @@ const connectWallet = async () => {
 
 };
 
+const startGame = async () => {
+    if (!currentAccount) {
+        alert("Please connect your wallet first.");
+        return;
+    }
+
+    // NEW CHECK: Make sure the ethers library is loaded
+    if (typeof window.ethers === 'undefined') {
+        alert('Ethers.js library not loaded. Please refresh the page.');
+        console.error('Ethers.js is not found on the window object');
+        return;
+    }
+
+    console.log("Starting a new game...");
+    try {
+        // Use window.ethers to be explicit
+        const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
+
+        const tx = await contract.startGame();
+
+        gameContainer.innerHTML = `<p class="placeholder-text">Shuffling the board on the blockchain... please wait.</p>`;
+
+        await tx.wait();
+        
+        console.log("Game started! Transaction hash:", tx.hash);
+        alert("New game started! The board is ready.");
+        
+        gameContainer.innerHTML = `<p class="placeholder-text">Game is ready! Board rendering coming next.</p>`;
+    
+    } catch (error) {
+        console.error("Error starting game:", error);
+        alert("An error occurred while starting a new game.");
+        updateUI(); // Reset UI in case of error
+    }
+};
 /**
  * Handles what happens when accounts change in MetaMask (connect, disconnect, switch).
  * @param {string[]} accounts - An array of account addresses provided by MetaMask.
@@ -35,16 +297,18 @@ const connectWallet = async () => {
 
 const handleAccountsChanged = (accounts) => {
     if (accounts.length === 0) {
-        // user disconnected their account
-        console.log('Please connect to MetaMask.');
+        console.log('User disconnected.');
         currentAccount = null;
-        updateUI();
     } else if (accounts[0] !== currentAccount) {
         currentAccount = accounts[0];
-        console.log('Wallet connected: ', currentAccount);
-        updateUI(); // Update the UI to show the address and game board.
+        console.log('Wallet connected:', currentAccount);
     }
+    updateUI(); // Just update the UI
 };
+
+/**
+ * Initializes the Ethers.js provider, signer, and contract objects.
+ */
 
 /**
  * Checks if a wallet is already connected when the page loads.
@@ -82,9 +346,22 @@ const updateUI = () => {
 
         // update the game container
          gameContainer.innerHTML = `
-            <p class="placeholder-text">Game board will appear here!</p>
+             <div id="game-controls">
+            <button id="startGameBtn">
+                New Game
+            </button>
+            </div>
+             <div class="" id="game-board-container">
+            <!-- the board will be rendered later-->
+            <p class="placeholder-text">Click "New Game" to Start!</p>
+             </div>
+             <div id="game-info">
+            <!-- Score and other infor wil go here-->
+        </div>
         `;
-
+        // add event listener for the new button.
+        document.getElementById('startGameBtn').addEventListener('click', startGame);
+        
     } else {
         // USER IS NOT CONNECTED 
         // Update the wallet connection div to show the "Connect Wallet" button
@@ -114,3 +391,5 @@ const initialize = () => {
 
 // Run the app!
 initialize();
+
+
