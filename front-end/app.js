@@ -281,14 +281,15 @@ const startGame = async () => {
         
         console.log("Game started! Transaction hash:", tx.hash);
         alert("New game started! The board is ready.");
-        
-        gameContainer.innerHTML = `<p class="placeholder-text">Game is ready! Board rendering coming next.</p>`;
+
+        renderBoard();
     
     } catch (error) {
         console.error("Error starting game:", error);
         alert("An error occurred while starting a new game.");
         updateUI(); // Reset UI in case of error
     }
+
 };
 /**
  * Handles what happens when accounts change in MetaMask (connect, disconnect, switch).
@@ -374,6 +375,35 @@ const updateUI = () => {
         ;
         document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
     }
+};
+
+const renderBoard = () => {
+    const boardContainer = document.getElementById('game-board-container');
+    if (!boardContainer) return;
+
+    let boardHTML = '<div class="game-board">';
+
+    for (let i = 0; i < 25; i++){
+        boardHTML += `
+            <div class="tile hidden" data-index="${i}">
+                ?
+            </div>
+        `;
+    }
+
+    boardHTML += '</div>';
+    boardContainer.innerHTML = boardHTML;
+
+
+    const tiles = document.querySelectorAll('.tile');
+    tiles.forEach(tile => {
+        tile.addEventListener('click', handleTileClick);
+    });
+};
+
+const handleTileClick = (event) => {
+    const tileIndex = event.target.dataset.index;
+    console.log(`Player clicked tile index: ${tileIndex}`);
 };
 
 // INIT
