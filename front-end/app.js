@@ -288,9 +288,9 @@ window.addEventListener('DOMContentLoaded', () => {
             isGameOver = false;
             
             boardContainer.innerHTML = `<p class="placeholder-text">Shuffling the board on the blockchain... please wait.</p>`;
-            gameInfo.innerHTML = '';
             
             await tx.wait();
+            updateScore(1);
             
             console.log("Game started! Transaction hash:", tx.hash);
             alert("New game started! The board is ready.");
@@ -324,30 +324,30 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- UI RENDERING ---
 
-    const updateUI = () => {
-        if (currentAccount) {
-            const formattedAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
-            walletConnectionDiv.innerHTML = `
-                <div class="wallet-info">
-                    <p>Connected</p>
-                    <p class="address">${formattedAddress}</p>
-                </div>`;
-            
-            gameControls.innerHTML = `<button id="startGameBtn">New Game</button>`;
-            document.getElementById('startGameBtn').addEventListener('click', startGame);
-            
-            boardContainer.innerHTML = `<p class="placeholder-text">Click "New Game" to start!</p>`;
-            gameInfo.innerHTML = '';
-            isGameOver = false;
-        } else {
-            walletConnectionDiv.innerHTML = `<button id="connectWalletBtn">Connect Wallet</button>`;
-            document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+ const updateUI = () => {
+    if (currentAccount) {
+        const formattedAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
+        walletConnectionDiv.innerHTML = `
+            <div class="wallet-info">
+                <p>Connected</p>
+                <p class="address">${formattedAddress}</p>
+            </div>`;
+        
+        gameControls.innerHTML = `<button id="startGameBtn">New Game</button>`;
+        document.getElementById('startGameBtn').addEventListener('click', startGame);
+        
+        gameInfo.innerHTML = `<p class="score-display">Score: <span id="score">0</span></p>`;
 
-            gameControls.innerHTML = '';
-            boardContainer.innerHTML = `<p class="placeholder-text">Please connect your wallet to begin.</p>`;
-            gameInfo.innerHTML = '';
-        }
-    };
+        boardContainer.innerHTML = `<p class="placeholder-text">Click "New Game" to start!</p>`;
+        
+    } else {
+        walletConnectionDiv.innerHTML = `<button id="connectWalletBtn">Connect Wallet</button>`;
+        document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+        gameControls.innerHTML = '';
+        boardContainer.innerHTML = `<p class="placeholder-text">Please connect your wallet to begin.</p>`;
+        gameInfo.innerHTML = '';
+    }
+};
 
     const renderBoard = () => {
         if (!boardContainer) return;
@@ -419,7 +419,7 @@ const handleTileClick = async (event) => {
             // Update the tile UI to show the Voltorb
             tile.classList.remove('hidden');
             tile.classList.add('voltorb');
-            tile.innerHTML = '💣'; // or a Voltorb emoji/image
+            tile.innerHTML = `<img src="img/voltorb.png" alt="Voltorb">`;
             isGameOver = true;
             alert("Boom! You hit a Voltorb. Game Over!");
             // We should now reveal the whole board
@@ -452,12 +452,16 @@ const handleTileClick = async (event) => {
 
     initialize();
 
-    const updateScore = (newScore) => {
+   const updateScore = (newScore) => {
+    console.log("Attempting to update score display to:", newScore.toString());
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
+        console.log("SUCCESS: Found score element, updating innerText.");
         scoreElement.innerText = newScore.toString();
+    } else {
+        console.error("FAILURE: Could not find element with id='score' in the document.");
     }
-    };
+};
     
 
 });
