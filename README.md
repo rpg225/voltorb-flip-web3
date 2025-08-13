@@ -77,4 +77,3 @@ To run this project locally, follow these steps:
 *   An Ethereum Node Provider RPC URL for Sepolia.
 *   A global installation of `live-server`: `npm install -g live-server`.
 
-**(The rest of the Setup, How to Use, Author, and License sections can remain the same as in the NFT Minter README, but make sure the contract-specific instructions are updated for `VoltorbFlip.sol`).**
