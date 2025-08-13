@@ -45,7 +45,7 @@ contract VoltorbFlip is Ownable {
         // === Input and State Validations ===
         require(_tileIndex < 25, "Tile index must be between 0 and 24.");
 
-        require(currentGame.status == GameStatus.InProgress, "Game is not in progess.");
+        require(currentGame.status == GameStatus.InProgress, "Game is not in progress.");
         require(!currentGame.revealedTiles[_tileIndex], "Tile has already been revealed.");
 
         // Mark the tile as revealed
@@ -77,6 +77,10 @@ contract VoltorbFlip is Ownable {
 
         }
     }
+
+function getBoard(address _player) external view returns (uint8[25] memory) {
+    return playerGames[_player].board;
+}
 
 
 

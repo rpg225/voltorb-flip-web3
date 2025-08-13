@@ -1,9 +1,19 @@
-// -- Contract Configuration
 
-const contractAddress = "0xe63667252fbF4DE5F18b953e19B00CD12c8E002A";
 
-const contractABI = [
+// =============================================================================
+//  Web3 Voltorb Flip - app.js
+// =============================================================================
 
+// This is the main entry point. It waits for the HTML to be fully loaded before running any code.
+let currentAccount = null;
+let isGameOver = false;
+
+
+window.addEventListener('DOMContentLoaded', () => {
+    
+    // --- CONTRACT CONFIGURATION ---
+    const contractAddress = "0xB68698d6821C53b9174967Da22b7d3986476CE47";
+    const contractABI = [
     {
       "inputs": [],
       "stateMutability": "nonpayable",
@@ -146,6 +156,25 @@ const contractABI = [
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_player",
+          "type": "address"
+        }
+      ],
+      "name": "getBoard",
+      "outputs": [
+        {
+          "internalType": "uint8[25]",
+          "name": "",
+          "type": "uint8[25]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "owner",
       "outputs": [
@@ -219,207 +248,262 @@ const contractABI = [
       "stateMutability": "nonpayable",
       "type": "function"
     }
+  ];
 
-];
+    // --- GLOBAL STATE ---
+    let currentAccount = null;
+    let isGameOver = false;
 
-let currentAccount = null;
-let voltorbFlipContract = null;
+    // --- DOM ELEMENT REFERENCES ---
+    const walletConnectionDiv = document.getElementById('wallet-connection');
+    const gameControls = document.getElementById('game-controls');
+    const boardContainer = document.getElementById('game-board-container');
+    const gameInfo = document.getElementById('game-info');
+    
+    // --- WEB3 & CONTRACT INTERACTION ---
 
-// Dom elements reference
-
-const walletConnectionDiv = document.getElementById('wallet-connection');
-const gameContainer = document.getElementById('game-container');
-
-// -- Core web3 functions
-
-const connectWallet = async () => {
-
-    try {
-        if(!window.ethereum){
-            alert("Please install MetaMask to use this Dapp");
-            return;
+    const connectWallet = async () => {
+        try {
+            if (!window.ethereum) return alert("Please install MetaMask.");
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            handleAccountsChanged(accounts);
+        } catch (error) {
+            console.error("Error connecting wallet:", error);
+            alert("Error connecting wallet.");
         }
+    };
 
-        const accounts = await window.ethereum.request({
-            method: 'eth_requestAccounts'
+    const startGame = async () => {
+        if (!currentAccount) return alert("Please connect your wallet first.");
+        if (typeof window.ethers === 'undefined') return alert('Ethers.js not loaded. Please refresh.');
+
+        isGameOver = false;
+        console.log("Starting a new game...");
+        try {
+            const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
+
+            const tx = await contract.startGame();
+            isGameOver = false;
+            
+            boardContainer.innerHTML = `<p class="placeholder-text">Shuffling the board on the blockchain... please wait.</p>`;
+            gameInfo.innerHTML = '';
+            
+            await tx.wait();
+            
+            console.log("Game started! Transaction hash:", tx.hash);
+            alert("New game started! The board is ready.");
+            renderBoard();
+        } catch (error) {
+            console.error("Error starting game:", error);
+            alert("An error occurred while starting a new game.");
+            updateUI();
+        }
+    };
+
+    const handleAccountsChanged = (accounts) => {
+        if (accounts.length === 0) {
+            currentAccount = null;
+        } else if (accounts[0] !== currentAccount) {
+            currentAccount = accounts[0];
+        }
+        updateUI();
+    };
+
+    const checkIfWalletIsConnected = async () => {
+        if (window.ethereum) {
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                handleAccountsChanged(accounts);
+            } catch (error) {
+                console.error("Error checking for connected wallet:", error);
+            }
+        }
+    };
+
+    // --- UI RENDERING ---
+
+    const updateUI = () => {
+        if (currentAccount) {
+            const formattedAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
+            walletConnectionDiv.innerHTML = `
+                <div class="wallet-info">
+                    <p>Connected</p>
+                    <p class="address">${formattedAddress}</p>
+                </div>`;
+            
+            gameControls.innerHTML = `<button id="startGameBtn">New Game</button>`;
+            document.getElementById('startGameBtn').addEventListener('click', startGame);
+            
+            boardContainer.innerHTML = `<p class="placeholder-text">Click "New Game" to start!</p>`;
+            gameInfo.innerHTML = '';
+            isGameOver = false;
+        } else {
+            walletConnectionDiv.innerHTML = `<button id="connectWalletBtn">Connect Wallet</button>`;
+            document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+
+            gameControls.innerHTML = '';
+            boardContainer.innerHTML = `<p class="placeholder-text">Please connect your wallet to begin.</p>`;
+            gameInfo.innerHTML = '';
+        }
+    };
+
+    const renderBoard = () => {
+        if (!boardContainer) return;
+        let boardHTML = '<div class="game-board">';
+        for (let i = 0; i < 25; i++) {
+            boardHTML += `<div class="tile hidden" data-index="${i}">?</div>`;
+        }
+        boardHTML += '</div>';
+        boardContainer.innerHTML = boardHTML;
+
+        const tiles = document.querySelectorAll('.tile');
+        tiles.forEach(tile => {
+            tile.addEventListener('click', handleTileClick);
         });
+    };
 
-        handleAccountsChanged(accounts);
-
-    } catch (error) {
-        console.log("Error connecting wallet:", error);
-        alert("An error occured while connecting your wallet. Please try again");
-    }
-
-};
-
-const startGame = async () => {
-    if (!currentAccount) {
-        alert("Please connect your wallet first.");
+const handleTileClick = async (event) => {
+    
+    if (isGameOver) {
+        console.log("Game is Over. Please start a new game");
         return;
     }
+    
+    const tileIndex = event.target.dataset.index;
+    if (!tileIndex) return; // Exit if the click is not on a valid tile
 
-    // NEW CHECK: Make sure the ethers library is loaded
-    if (typeof window.ethers === 'undefined') {
-        alert('Ethers.js library not loaded. Please refresh the page.');
-        console.error('Ethers.js is not found on the window object');
-        return;
-    }
+    console.log(`Attempting to flip tile index: ${tileIndex}`);
 
-    console.log("Starting a new game...");
+    // Prevent user from clicking again while a transaction is in progress
+    const tile = event.target;
+    tile.style.pointerEvents = 'none'; // Disable clicks on this tile
+    tile.innerHTML = '...'; // Show a loading indicator
+
     try {
-        // Use window.ethers to be explicit
+        // We need a contract instance with a signer to send a transaction
         const provider = new window.ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
 
-        const tx = await contract.startGame();
-
-        gameContainer.innerHTML = `<p class="placeholder-text">Shuffling the board on the blockchain... please wait.</p>`;
-
-        await tx.wait();
+        // Call the flipTile function on the smart contract
+        const tx = await contract.flipTile(tileIndex);
         
-        console.log("Game started! Transaction hash:", tx.hash);
-        alert("New game started! The board is ready.");
+        console.log(`Flipping tile ${tileIndex}... Transaction hash: ${tx.hash}`);
+        
+        // Wait for the transaction to be mined
+        const receipt = await tx.wait();
+  
+        console.log("Transaction confirmed:", receipt);
 
-        renderBoard();
-    
-    } catch (error) {
-        console.error("Error starting game:", error);
-        alert("An error occurred while starting a new game.");
-        updateUI(); // Reset UI in case of error
-    }
+        // The smart contract will emit an event (TileFlipped, GameOver, or GameWon).
+        // We need to find that event in the transaction receipt to get the result.
+        let flippedEvent = receipt.events?.find(e => e.event === 'TileFlipped');
+        let gameOverEvent = receipt.events?.find(e => e.event === 'GameOver');
+        let gameWonEvent = receipt.events?.find(e => e.event === 'GameWon');
 
-};
-/**
- * Handles what happens when accounts change in MetaMask (connect, disconnect, switch).
- * @param {string[]} accounts - An array of account addresses provided by MetaMask.
- */
+        if (flippedEvent) {
+            const { tileValue, newScore } = flippedEvent.args;
+            console.log(`Success! Flipped tile was: ${tileValue}, New score: ${newScore}`);
+            // Update the tile UI
+            tile.classList.remove('hidden');
+            tile.classList.add(`value-${tileValue}`);
+            tile.innerHTML = tileValue;
+            // Update score display (we'll add this UI element next)
+            updateScore(newScore);
 
-const handleAccountsChanged = (accounts) => {
-    if (accounts.length === 0) {
-        console.log('User disconnected.');
-        currentAccount = null;
-    } else if (accounts[0] !== currentAccount) {
-        currentAccount = accounts[0];
-        console.log('Wallet connected:', currentAccount);
-    }
-    updateUI(); // Just update the UI
-};
+        } else if (gameOverEvent) {
+            const { finalScore } = gameOverEvent.args;
+            console.log(`Game Over! Final score: ${finalScore}`);
+            // Update the tile UI to show the Voltorb
+            tile.classList.remove('hidden');
+            tile.classList.add('voltorb');
+            tile.innerHTML = '💣'; // or a Voltorb emoji/image
+            isGameOver = true;
+            alert("Boom! You hit a Voltorb. Game Over!");
+            // We should now reveal the whole board
+            revealBoard(); // We will create this function
 
-/**
- * Initializes the Ethers.js provider, signer, and contract objects.
- */
-
-/**
- * Checks if a wallet is already connected when the page loads.
- */
-
-const checkIfWalletIsConnected = async () => {
-    if (window.ethereum) {
-        try {
-            // this method returns accoutns if the site is already authorzed. No popup.
-            const accounts = await window.ethereum.request({
-                method : 'eth_accounts'
-            });
-            handleAccountsChanged(accounts);
-        } catch (error) {
-            console.error("Error checking for connected wallet:", error);
+        } else if (gameWonEvent) {
+            const { finalScore } = gameWonEvent.args;
+            console.log(`You Won! Final score: ${finalScore}`);
+            isGameOver = true;
+            alert("Congratulations, you found all the coins!");
+            revealBoard(); // We will create this function
         }
+
+    } catch (error) {
+        console.error(`Error flipping tile ${tileIndex}:`, error);
+        alert(`Error: ${error.reason || "An error occurred."}`);
+        tile.style.pointerEvents = 'auto'; // Re-enable click on error
+        tile.innerHTML = '?'; // Reset tile
     }
-}
+};
 
-// --- UPDATE UI FUNCTION ---
+    // --- INITIALIZATION ---
+    function initialize() {
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', handleAccountsChanged);
+        }
+        updateUI();
+        checkIfWalletIsConnected();
+    }
 
-const updateUI = () => {
-    if (currentAccount) {
-        // --- USER CONNECTED ---
-        // format the address for display
-        const formattedAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
+    initialize();
 
-        // update the wallet connection div with address.
-        walletConnectionDiv.innerHTML = `
-         <div class="wallet-info">
-            <p> Connected </p>
-            <p class="address">${formattedAddress}</p>
-         </div>
-        `;
+    const updateScore = (newScore) => {
+    const scoreElement = document.getElementById('score');
+    if (scoreElement) {
+        scoreElement.innerText = newScore.toString();
+    }
+    };
+    
 
-        // update the game container
-         gameContainer.innerHTML = `
-             <div id="game-controls">
-            <button id="startGameBtn">
-                New Game
-            </button>
-            </div>
-             <div class="" id="game-board-container">
-            <!-- the board will be rendered later-->
-            <p class="placeholder-text">Click "New Game" to Start!</p>
-             </div>
-             <div id="game-info">
-            <!-- Score and other infor wil go here-->
-        </div>
-        `;
-        // add event listener for the new button.
-        document.getElementById('startGameBtn').addEventListener('click', startGame);
+});
+
+
+
+const revealBoard = async () => {
+    console.log("Revealing the rest of the board...");
+    if (!currentAccount || typeof window.ethers === 'undefined') return;
+
+    try {
+        // We need a provider for read-only calls.
+        const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+        const contract = new window.ethers.Contract(contractAddress, contractABI, provider);
+
+        // Call the getBoard view function from our smart contract.
+        const solutionBoard = await contract.getBoard(currentAccount);
         
-    } else {
-        // USER IS NOT CONNECTED 
-        // Update the wallet connection div to show the "Connect Wallet" button
-        walletConnectionDiv.innerHTML =`
-            <button id="connectWalletBtn">Connect Wallet</button>
-        `;
-        gameContainer.innerHTML = `
-            <p class="placeholder-text"> Please Connect your wallet to begin </p>
-        `
-        ;
-        document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+        console.log("Solution board fetched:", solutionBoard);
+
+        // Now, update the UI for all tiles.
+        const tiles = document.querySelectorAll('.tile');
+        tiles.forEach((tile, index) => {
+            // Get the value for this specific tile from the solution array
+            const tileValue = solutionBoard[index];
+            
+            // Remove the click listener to make the board inactive.
+            tile.removeEventListener('click', handleTileClick);
+            tile.style.cursor = 'default';
+            tile.style.pointerEvents = 'none'; // Also disable pointer events
+
+            // Update the tile's appearance based on its value.
+            // We only update tiles that haven't already been revealed.
+            if (tile.classList.contains('hidden')) {
+                tile.classList.remove('hidden');
+                if (tileValue === 0) {
+                    tile.classList.add('voltorb');
+                    tile.innerHTML = '💣';
+                } else {
+                    tile.classList.add(`value-${tileValue}`);
+                    tile.innerHTML = tileValue;
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Error revealing board:", error);
+        alert("Could not fetch the final board state.");
     }
 };
-
-const renderBoard = () => {
-    const boardContainer = document.getElementById('game-board-container');
-    if (!boardContainer) return;
-
-    let boardHTML = '<div class="game-board">';
-
-    for (let i = 0; i < 25; i++){
-        boardHTML += `
-            <div class="tile hidden" data-index="${i}">
-                ?
-            </div>
-        `;
-    }
-
-    boardHTML += '</div>';
-    boardContainer.innerHTML = boardHTML;
-
-
-    const tiles = document.querySelectorAll('.tile');
-    tiles.forEach(tile => {
-        tile.addEventListener('click', handleTileClick);
-    });
-};
-
-const handleTileClick = (event) => {
-    const tileIndex = event.target.dataset.index;
-    console.log(`Player clicked tile index: ${tileIndex}`);
-};
-
-// INIT
-
-const initialize = () => {
-    // Set up the listener for account changes
-    if (window.ethereum) {
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
-    }
-    // Set the initial UI to disconnected state
-    updateUI();
-    // Check if a wallet is already connected and update the UI if it is
-    checkIfWalletIsConnected();
-};
-
-// Run the app!
-initialize();
-
-

@@ -14,9 +14,19 @@
 
             </div>
         </header>
-        <main id="game-container">
-            <p class="placeholder-text">Please connect your wallet to begin.</p>
-        </main>
+        <main id="game-area"> <!-- Renamed for clarity -->
+    <div id="game-controls">
+        <!-- New Game button will go here -->
+    </div>
+    <div id="game-board-container">
+        <!-- The board or placeholder text will go here -->
+        <p class="placeholder-text">Please connect your wallet to begin.</p>
+    </div>
+    <div id="game-info">
+        <!-- Score info -->
+         <p class="score-display"> Score: <span id="score">1</span></p>
+    </div>
+</main>
     </div>
     <script src="ethers.umd.min.js"></script>
     <script src="app.js"></script>
