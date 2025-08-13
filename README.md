@@ -9,10 +9,28 @@ The frontend is built with **Vanilla JavaScript, HTML, and CSS**, providing a li
 
 ---
 
+---
+
+## How to Play: The Rules of Voltorb Flip
+
+Voltorb Flip is a game of logic and luck. The goal is to find all the hidden '2' and '3' coin multipliers without flipping over a hidden Voltorb.
+
+*   **The Game Board:** The game is played on a 5x5 grid. Each tile hides either a Voltorb or a number (1, 2, or 3).
+*   **Starting the Game:** Click "New Game" to start a new round. Your score (multiplier) will begin at 1.
+*   **Flipping Tiles:**
+    *   Click on any hidden tile to reveal its value.
+    *   If you reveal a **'1'**, your score does not change, but you are safe to continue.
+    *   If you reveal a **'2'** or a **'3'**, your current score is multiplied by that number. This is how you win big!
+*   **Losing the Game:**
+    *   If you flip a tile hiding a **Voltorb (💣)**, the game is immediately over, and your score resets to 0.
+*   **Winning the Game:**
+    *   You win the game by successfully flipping over **all** of the '2' and '3' tiles on the board without hitting any Voltorbs.
+
+Good luck!
+
+---
+
 ## Live Demo
-
-**(You can deploy this Vanilla JS frontend to GitHub Pages or Netlify/Vercel very easily later. For now, we can leave this.)**
-
 Live demo coming soon!
 
 ---
