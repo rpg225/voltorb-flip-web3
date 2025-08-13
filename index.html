@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voltorb Flip</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header class="app-header">
+            <h1>Voltorb Flip Web3</h1>
+            <
+            <div id="wallet-connection">
+            </div>
+        </header>
+        <main id="game-area"> <!-- Renamed for clarity -->
+    <div id="game-controls">
+        <!-- New Game button will go here -->
+    </div>
+    <div id="game-board-container">
+        <!-- The board or placeholder text will go here -->
+        <p class="placeholder-text">Please connect your wallet to begin.</p>
+    </div>
+    <div id="game-info">
+        <!-- Score info -->
+         <p class="score-display"> Score: <span id="score">1</span></p>
+    </div>
+</main>
+    </div>
+    <script src="app.js"></script>
+    <!-- SCRIPT TAGS GO HERE, AT THE END OF THE BODY -->
+    <!-- 1. Load Ethers.js FIRST -->
+    <script src="ethers.umd.min.js"></script>
+
+    <!-- 2. Load Web3Modal SECOND -->
+    <script src="https://unpkg.com/@web3modal/standalone@3.4.0/dist/index.umd.js"></script>
+
+    <!-- 3. Load our app.js script LAST -->
+    <script src="app.js"></script> 
+</body>
+</html>
