@@ -1,4 +1,5 @@
 # Web3 Voltorb Flip - A Decentralized Game
+![Voltorb Flip DApp Screenshot](voltorb-flip-web3.png)
 
 ## Project Description
 
