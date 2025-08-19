@@ -535,7 +535,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (tileValue === 0) {
             // Hit a Voltorb - game over!
             tile.classList.add('voltorb');
-            tile.innerHTML = `<img src="img/voltorb.png" alt="Voltorb" style="width: 60px; height: 60px;">`;
+            tile.innerHTML = `<img src="img/voltorb.png" alt="Voltorb">`;
             isGameOver = true;
             
             console.log(`Game Over! Hit Voltorb at position ${tileIndex}`);
