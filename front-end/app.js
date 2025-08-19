@@ -1,13 +1,12 @@
-
-
 // =============================================================================
-//  Web3 Voltorb Flip - app.js
+//  Web3 Voltorb Flip - app.js (Client-side gameplay)
 // =============================================================================
 
 // This is the main entry point. It waits for the HTML to be fully loaded before running any code.
 let currentAccount = null;
 let isGameOver = false;
-
+let gameBoard = []; // Client-side game board
+let currentScore = 1;
 
 window.addEventListener('DOMContentLoaded', () => {
     
@@ -260,7 +259,55 @@ window.addEventListener('DOMContentLoaded', () => {
     const boardContainer = document.getElementById('game-board-container');
     const gameInfo = document.getElementById('game-info');
     
-    // --- WEB3 & CONTRACT INTERACTION ---
+    // --- GAME LOGIC FUNCTIONS ---
+    
+    const generateGameBoard = () => {
+        // Create a 5x5 board (25 tiles)
+        const board = new Array(25).fill(0);
+        
+        // Place 5 Voltorbs (value 0) randomly
+        const voltorbPositions = [];
+        while (voltorbPositions.length < 5) {
+            const pos = Math.floor(Math.random() * 25);
+            if (!voltorbPositions.includes(pos)) {
+                voltorbPositions.push(pos);
+                board[pos] = 0; // 0 represents Voltorb
+            }
+        }
+        
+        // Fill remaining positions with coins (1, 2, or 3)
+        for (let i = 0; i < 25; i++) {
+            if (!voltorbPositions.includes(i)) {
+                // Weight the distribution: more 1s, fewer 2s and 3s
+                const rand = Math.random();
+                if (rand < 0.6) board[i] = 1;
+                else if (rand < 0.85) board[i] = 2;
+                else board[i] = 3;
+            }
+        }
+        
+        return board;
+    };
+    
+    const checkWinCondition = () => {
+        // Check if all non-Voltorb tiles have been revealed
+        const tiles = document.querySelectorAll('.tile');
+        let allCoinsRevealed = true;
+        
+        for (let i = 0; i < tiles.length; i++) {
+            const tile = tiles[i];
+            const boardValue = gameBoard[i];
+            
+            if (boardValue !== 0 && tile.classList.contains('hidden')) {
+                allCoinsRevealed = false;
+                break;
+            }
+        }
+        
+        return allCoinsRevealed;
+    };
+
+    // --- WEB3 & CONTRACT INTERACTION (Only for game start/end) ---
 
     const connectWallet = async () => {
         try {
@@ -284,21 +331,118 @@ window.addEventListener('DOMContentLoaded', () => {
             const signer = provider.getSigner();
             const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
 
+            // Send blockchain transaction to start game
             const tx = await contract.startGame();
             isGameOver = false;
             
-            boardContainer.innerHTML = `<p class="placeholder-text">Shuffling the board on the blockchain... please wait.</p>`;
+            boardContainer.innerHTML = `<p class="placeholder-text">Starting new game on blockchain... please wait.</p>`;
             
             await tx.wait();
-            updateScore(1);
+            
+            // Generate client-side game board
+            gameBoard = generateGameBoard();
+            currentScore = 1;
+            updateScore(currentScore);
             
             console.log("Game started! Transaction hash:", tx.hash);
-            alert("New game started! The board is ready.");
+            console.log("Generated board:", gameBoard);
+            alert("New game started! Start flipping tiles.");
             renderBoard();
         } catch (error) {
             console.error("Error starting game:", error);
             alert("An error occurred while starting a new game.");
             updateUI();
+        }
+    };
+
+    const endGame = async (won, finalScore) => {
+        if (!currentAccount || typeof window.ethers === 'undefined') return;
+        
+        try {
+            const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
+
+            console.log(`Game ended. Won: ${won}, Final Score: ${finalScore}`);
+            
+            // If player won, show prize claim option
+            if (won) {
+                showPrizeClaimUI(finalScore);
+            }
+            
+        } catch (error) {
+            console.error("Error ending game on blockchain:", error);
+        }
+    };
+
+    const showPrizeClaimUI = (finalScore) => {
+        // Calculate prize based on score (you can adjust this formula)
+        const prizeAmount = calculatePrize(finalScore);
+        
+        // Show claim button in game controls
+        gameControls.innerHTML = `
+            <div class="prize-claim">
+                <h3>🎉 Congratulations! You Won!</h3>
+                <p>Final Score: ${finalScore}</p>
+                <p>Prize: ${prizeAmount} ETH</p>
+                <button id="claimPrizeBtn">Claim Prize</button>
+                <button id="playAgainBtn">Play Again</button>
+            </div>
+        `;
+        
+        document.getElementById('claimPrizeBtn').addEventListener('click', () => claimPrize(finalScore));
+        document.getElementById('playAgainBtn').addEventListener('click', startGame);
+    };
+
+    const calculatePrize = (score) => {
+        // Simple prize calculation - you can make this more sophisticated
+        // For testing on Sepolia, using small amounts
+        if (score >= 1000) return "0.001"; // High score bonus
+        if (score >= 500) return "0.0005";
+        if (score >= 100) return "0.0002";
+        return "0.0001"; // Minimum prize for completing the board
+    };
+
+    const claimPrize = async (finalScore) => {
+        if (!currentAccount || typeof window.ethers === 'undefined') return;
+        
+        try {
+            const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
+
+            // Disable the claim button to prevent double-clicking
+            const claimBtn = document.getElementById('claimPrizeBtn');
+            claimBtn.disabled = true;
+            claimBtn.innerHTML = 'Claiming...';
+
+            // Call smart contract method to claim prize
+            // This assumes your contract has a claimPrize(uint256 score) function
+            const tx = await contract.claimPrize(finalScore);
+            
+            console.log("Prize claim transaction sent:", tx.hash);
+            alert(`Prize claim submitted! Transaction: ${tx.hash.substring(0, 10)}...`);
+            
+            // Wait for confirmation
+            await tx.wait();
+            
+            console.log("Prize claimed successfully!");
+            alert("🎉 Prize claimed successfully! Check your wallet.");
+            
+            // Reset UI for new game
+            gameControls.innerHTML = `<button id="startGameBtn">New Game</button>`;
+            document.getElementById('startGameBtn').addEventListener('click', startGame);
+            
+        } catch (error) {
+            console.error("Error claiming prize:", error);
+            alert(`Error claiming prize: ${error.reason || error.message}`);
+            
+            // Re-enable the claim button on error
+            const claimBtn = document.getElementById('claimPrizeBtn');
+            if (claimBtn) {
+                claimBtn.disabled = false;
+                claimBtn.innerHTML = 'Claim Prize';
+            }
         }
     };
 
@@ -324,30 +468,30 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- UI RENDERING ---
 
- const updateUI = () => {
-    if (currentAccount) {
-        const formattedAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
-        walletConnectionDiv.innerHTML = `
-            <div class="wallet-info">
-                <p>Connected</p>
-                <p class="address">${formattedAddress}</p>
-            </div>`;
-        
-        gameControls.innerHTML = `<button id="startGameBtn">New Game</button>`;
-        document.getElementById('startGameBtn').addEventListener('click', startGame);
-        
-        gameInfo.innerHTML = `<p class="score-display">Score: <span id="score">0</span></p>`;
+    const updateUI = () => {
+        if (currentAccount) {
+            const formattedAddress = `${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
+            walletConnectionDiv.innerHTML = `
+                <div class="wallet-info">
+                    <p>Connected</p>
+                    <p class="address">${formattedAddress}</p>
+                </div>`;
+            
+            gameControls.innerHTML = `<button id="startGameBtn">New Game</button>`;
+            document.getElementById('startGameBtn').addEventListener('click', startGame);
+            
+            gameInfo.innerHTML = `<p class="score-display">Score: <span id="score">0</span></p>`;
 
-        boardContainer.innerHTML = `<p class="placeholder-text">Click "New Game" to start!</p>`;
-        
-    } else {
-        walletConnectionDiv.innerHTML = `<button id="connectWalletBtn">Connect Wallet</button>`;
-        document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
-        gameControls.innerHTML = '';
-        boardContainer.innerHTML = `<p class="placeholder-text">Please connect your wallet to begin.</p>`;
-        gameInfo.innerHTML = '';
-    }
-};
+            boardContainer.innerHTML = `<p class="placeholder-text">Click "New Game" to start!</p>`;
+            
+        } else {
+            walletConnectionDiv.innerHTML = `<button id="connectWalletBtn">Connect Wallet</button>`;
+            document.getElementById('connectWalletBtn').addEventListener('click', connectWallet);
+            gameControls.innerHTML = '';
+            boardContainer.innerHTML = `<p class="placeholder-text">Please connect your wallet to begin.</p>`;
+            gameInfo.innerHTML = '';
+        }
+    };
 
     const renderBoard = () => {
         if (!boardContainer) return;
@@ -364,82 +508,69 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-const handleTileClick = async (event) => {
-    
-    if (isGameOver) {
-        console.log("Game is Over. Please start a new game");
-        return;
-    }
-    
-    const tileIndex = event.target.dataset.index;
-    if (!tileIndex) return; // Exit if the click is not on a valid tile
-
-    console.log(`Attempting to flip tile index: ${tileIndex}`);
-
-    // Prevent user from clicking again while a transaction is in progress
-    const tile = event.target;
-    tile.style.pointerEvents = 'none'; // Disable clicks on this tile
-    tile.innerHTML = '...'; // Show a loading indicator
-
-    try {
-        // We need a contract instance with a signer to send a transaction
-        const provider = new window.ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        const contract = new window.ethers.Contract(contractAddress, contractABI, signer);
-
-        // Call the flipTile function on the smart contract
-        const tx = await contract.flipTile(tileIndex);
+    // --- CLIENT-SIDE TILE CLICKING (No blockchain interaction) ---
+    const handleTileClick = async (event) => {
         
-        console.log(`Flipping tile ${tileIndex}... Transaction hash: ${tx.hash}`);
+        if (isGameOver) {
+            console.log("Game is Over. Please start a new game");
+            return;
+        }
         
-        // Wait for the transaction to be mined
-        const receipt = await tx.wait();
-  
-        console.log("Transaction confirmed:", receipt);
+        const tileIndex = parseInt(event.target.dataset.index);
+        if (isNaN(tileIndex) || tileIndex < 0 || tileIndex >= 25) return;
 
-        // The smart contract will emit an event (TileFlipped, GameOver, or GameWon).
-        // We need to find that event in the transaction receipt to get the result.
-        let flippedEvent = receipt.events?.find(e => e.event === 'TileFlipped');
-        let gameOverEvent = receipt.events?.find(e => e.event === 'GameOver');
-        let gameWonEvent = receipt.events?.find(e => e.event === 'GameWon');
+        console.log(`Flipping tile index: ${tileIndex}`);
 
-        if (flippedEvent) {
-            const { tileValue, newScore } = flippedEvent.args;
-            console.log(`Success! Flipped tile was: ${tileValue}, New score: ${newScore}`);
-            // Update the tile UI
-            tile.classList.remove('hidden');
+        const tile = event.target;
+        
+        // Prevent double-clicking the same tile
+        if (!tile.classList.contains('hidden')) return;
+        
+        // Get the value from our client-side board
+        const tileValue = gameBoard[tileIndex];
+        
+        // Update the tile UI immediately (no blockchain delay!)
+        tile.classList.remove('hidden');
+        
+        if (tileValue === 0) {
+            // Hit a Voltorb - game over!
+            tile.classList.add('voltorb');
+            tile.innerHTML = `<img src="img/voltorb.png" alt="Voltorb" style="width: 60px; height: 60px;">`;
+            isGameOver = true;
+            
+            console.log(`Game Over! Hit Voltorb at position ${tileIndex}`);
+            alert("Boom! You hit a Voltorb. Game Over!");
+            
+            // Record game end on blockchain
+            endGame(false, currentScore);
+            
+            // Reveal the whole board
+            revealBoard();
+            
+        } else {
+            // Hit a coin!
             tile.classList.add(`value-${tileValue}`);
             tile.innerHTML = tileValue;
-            // Update score display (we'll add this UI element next)
-            updateScore(newScore);
-
-        } else if (gameOverEvent) {
-            const { finalScore } = gameOverEvent.args;
-            console.log(`Game Over! Final score: ${finalScore}`);
-            // Update the tile UI to show the Voltorb
-            tile.classList.remove('hidden');
-            tile.classList.add('voltorb');
-            tile.innerHTML = `<img src="img/voltorb.png" alt="Voltorb">`;
-            isGameOver = true;
-            alert("Boom! You hit a Voltorb. Game Over!");
-            // We should now reveal the whole board
-            revealBoard(); // We will create this function
-
-        } else if (gameWonEvent) {
-            const { finalScore } = gameWonEvent.args;
-            console.log(`You Won! Final score: ${finalScore}`);
-            isGameOver = true;
-            alert("Congratulations, you found all the coins!");
-            revealBoard(); // We will create this function
+            
+            // Update score (multiply by coin value)
+            currentScore *= tileValue;
+            updateScore(currentScore);
+            
+            console.log(`Success! Flipped coin value: ${tileValue}, New score: ${currentScore}`);
+            
+            // Check if player won (all coins revealed)
+            if (checkWinCondition()) {
+                isGameOver = true;
+                console.log(`You Won! Final score: ${currentScore}`);
+                alert("Congratulations! You found all the coins!");
+                
+                // Record game win on blockchain
+                endGame(true, currentScore);
+                
+                revealBoard();
+            }
         }
-
-    } catch (error) {
-        console.error(`Error flipping tile ${tileIndex}:`, error);
-        alert(`Error: ${error.reason || "An error occurred."}`);
-        tile.style.pointerEvents = 'auto'; // Re-enable click on error
-        tile.innerHTML = '?'; // Reset tile
-    }
-};
+    };
 
     // --- INITIALIZATION ---
     function initialize() {
@@ -452,62 +583,41 @@ const handleTileClick = async (event) => {
 
     initialize();
 
-   const updateScore = (newScore) => {
-    console.log("Attempting to update score display to:", newScore.toString());
-    const scoreElement = document.getElementById('score');
-    if (scoreElement) {
-        console.log("SUCCESS: Found score element, updating innerText.");
-        scoreElement.innerText = newScore.toString();
-    } else {
-        console.error("FAILURE: Could not find element with id='score' in the document.");
-    }
-};
+    const updateScore = (newScore) => {
+        console.log("Updating score display to:", newScore.toString());
+        const scoreElement = document.getElementById('score');
+        if (scoreElement) {
+            scoreElement.innerText = newScore.toString();
+        } else {
+            console.error("Could not find score element");
+        }
+    };
     
-
 });
 
-
-
-const revealBoard = async () => {
+// --- CLIENT-SIDE BOARD REVEAL ---
+const revealBoard = () => {
     console.log("Revealing the rest of the board...");
-    if (!currentAccount || typeof window.ethers === 'undefined') return;
+    
+    const tiles = document.querySelectorAll('.tile');
+    tiles.forEach((tile, index) => {
+        // Remove click listeners and disable interaction
+        tile.removeEventListener('click', handleTileClick);
+        tile.style.cursor = 'default';
+        tile.style.pointerEvents = 'none';
 
-    try {
-        // We need a provider for read-only calls.
-        const provider = new window.ethers.providers.Web3Provider(window.ethereum);
-        const contract = new window.ethers.Contract(contractAddress, contractABI, provider);
-
-        // Call the getBoard view function from our smart contract.
-        const solutionBoard = await contract.getBoard(currentAccount);
-        
-        console.log("Solution board fetched:", solutionBoard);
-
-        // Now, update the UI for all tiles.
-        const tiles = document.querySelectorAll('.tile');
-        tiles.forEach((tile, index) => {
-            // Get the value for this specific tile from the solution array
-            const tileValue = solutionBoard[index];
+        // Reveal hidden tiles
+        if (tile.classList.contains('hidden')) {
+            tile.classList.remove('hidden');
+            const tileValue = gameBoard[index];
             
-            // Remove the click listener to make the board inactive.
-            tile.removeEventListener('click', handleTileClick);
-            tile.style.cursor = 'default';
-            tile.style.pointerEvents = 'none'; // Also disable pointer events
-
-            // Update the tile's appearance based on its value.
-            // We only update tiles that haven't already been revealed.
-            if (tile.classList.contains('hidden')) {
-                tile.classList.remove('hidden');
-                if (tileValue === 0) {
-                    tile.classList.add('voltorb');
-                    tile.innerHTML = '💣';
-                } else {
-                    tile.classList.add(`value-${tileValue}`);
-                    tile.innerHTML = tileValue;
-                }
+            if (tileValue === 0) {
+                tile.classList.add('voltorb');
+                tile.innerHTML = `<img src="img/voltorb.png" alt="Voltorb">`;
+            } else {
+                tile.classList.add(`value-${tileValue}`);
+                tile.innerHTML = tileValue;
             }
-        });
-    } catch (error) {
-        console.error("Error revealing board:", error);
-        alert("Could not fetch the final board state.");
-    }
+        }
+    });
 };
