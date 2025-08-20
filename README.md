@@ -31,7 +31,7 @@ Good luck!
 ---
 
 ## Live Demo
-Live demo coming soon!
+(https://rpg225.github.io/voltorb-flip-web3/)
 
 ---
 
